@@ -1,0 +1,67 @@
+{
+  "name": "minigames",
+  "displayName": "Minigames",
+  "description": "Six fun mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) for Cursor IDE and VS Code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mamaciel/Minigames.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mamaciel/Minigames/issues"
+  },
+  "homepage": "https://github.com/mamaciel/Minigames#readme",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "minigames.showGame",
+        "title": "Show Minigames"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "minigames",
+          "name": "Minigames",
+          "type": "webview",
+          "when": "true"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "game",
+    "games",
+    "minigames",
+    "mini-games",
+    "cursor",
+    "vscode",
+    "extension",
+    "entertainment",
+    "breakout",
+    "runner",
+    "space-shooter",
+    "chess",
+    "snake",
+    "2048"
+  ],
+  "publisher": "marcosbuilds",
+  "author": "Marcos Maciel",
+  "license": "MIT",
+  "dependencies": {
+    "chess.js": "^1.4.0"
+  }
+}

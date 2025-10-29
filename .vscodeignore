@@ -1,0 +1,8 @@
+.vscode/**
+.gitignore
+node_modules/**
+*.vsix
+IMPROVEMENTS.md
+PUBLISHING_GUIDE.md
+Improvements.md
+.git/**
