@@ -1,16 +1,18 @@
-# Cursor Mini Games Extension
+# Minigames Extension
 
-Multiple mini games (Space Shooter, Runner, Breakout) for Cursor IDE and VS Code that display in a compact webview panel.
+A collection of six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) for Cursor IDE and VS Code that display in a compact webview view.
 
 ## Features
 
-- 🎮 **3 Mini Games**: Space Shooter, Runner, and Breakout
+- 🎮 **Six Mini Games**: Space Shooter, Runner, Breakout, Chess, Snake, and 2048
 - 🎯 **Space Shooter**: Move ship with mouse, click to shoot targets
 - 🏃 **Runner**: Press Spacebar to jump over obstacles
 - 🎾 **Breakout**: Move paddle with mouse to break bricks
-- 📊 Score tracking for all games
+- ♟️ **Chess**: Play with legal move validation
+- 🐍 **Snake**: Arrow keys to steer, grow without colliding
+- 🔢 **2048**: Merge tiles to reach 2048
+- 📊 Score tracking and game state management
 - ⏸️ Pause/Resume with Escape key
-- 🎨 Custom dark theme (#363d46, #22272e, #1c2128, #adbac7)
 - 📱 Compact design perfect for sidebars and panels
 
 ## Installation
@@ -36,9 +38,9 @@ Multiple mini games (Space Shooter, Runner, Breakout) for Cursor IDE and VS Code
    npm install
    ```
 3. Press `F5` in VS Code/Cursor to open a new Extension Development Host window
-4. **Look for "Space Shooter" in the Explorer sidebar** (left side panel)
+4. **Look for "Minigames" in the Explorer sidebar** (left side panel)
 5. If you don't see it, open the Explorer view (View → Explorer or Ctrl+Shift+E)
-6. Expand the Explorer sidebar to see the "Space Shooter" view
+6. Expand the Explorer sidebar to see the "Minigames" view
 
 ## Usage
 
@@ -96,8 +98,8 @@ This extension now uses a **Webview View** instead of a full webview panel, whic
 
 To move the game to the agent panel area (above the chat interface):
 
-1. **Find the "Space Shooter" view** in the Explorer sidebar (left side)
-2. **Right-click on the "Space Shooter" title** or drag the view tab
+1. **Find the "Minigames" view** in the Explorer sidebar (left side)
+2. **Right-click on the "Minigames" title** or drag the view tab
 3. **Drag it** to the agent panel area (above the chat interface) or wherever you prefer
 4. The game will automatically resize to fit the new location
 
@@ -151,8 +153,6 @@ To publish this extension to the Visual Studio Marketplace:
 4. **Login**: `vsce login YOUR-PUBLISHER-ID`
 5. **Publish**: `vsce publish`
 
-See [PUBLISHING.md](./PUBLISHING.md) for detailed step-by-step instructions.
-
 ## Compatibility
 
 ✅ **VS Code 1.74.0+** - Fully compatible  
@@ -173,13 +173,13 @@ MIT
 
 ### Game doesn't appear
 
-- Check that the extension is activated (look for "Cursor Space Shooter extension is now active!" in the Output panel)
-- Try running the command "Show Space Shooter Game" from the Command Palette (Ctrl+Shift+P)
+- Check that the extension is activated (look for "Minigames extension is now active!" in the Output panel)
+- Try running the command "Show Minigames" from the Command Palette (Ctrl+Shift+P)
 
 ### Game is not in the agent panel
 
 - The game appears in the Explorer sidebar by default
-- **To move it**: Right-click on the "Space Shooter" view title and drag it to your desired location
+- **To move it**: Right-click on the "Minigames" view title and drag it to your desired location
 - The view is designed to be compact and will adapt to smaller panel sizes
 - If dragging doesn't work, try using the view context menu options (right-click)
 
