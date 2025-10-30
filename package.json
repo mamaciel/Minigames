@@ -2,14 +2,14 @@
   "name": "minigames",
   "displayName": "Minigames",
   "description": "Six fun mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) for Cursor IDE and VS Code",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.74.0"
   },
   "categories": [
     "Other"
   ],
-  "icon": "MinigamesLogo.png",
+  "icon": "images/MinigamesLogo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/mamaciel/Minigames.git"
