@@ -442,7 +442,6 @@ function getGameHTML(chessJsSrc) {
         </div>
     </div>
 
-    <script src="https://unpkg.com/stockfish.js@16.0.0/src/stockfish.js"></script>
     <script>
         const vscode = acquireVsCodeApi();
         // Game manager
@@ -659,7 +658,11 @@ function getGameHTML(chessJsSrc) {
         });
 
         helpBtn.addEventListener('click', () => {
-            showHelp();
+            if (helpOverlay.classList.contains('show')) {
+                helpOverlay.classList.remove('show');
+            } else {
+                showHelp();
+            }
         });
 
         closeHelpBtn.addEventListener('click', () => {
@@ -695,6 +698,7 @@ function getGameHTML(chessJsSrc) {
                         <p><strong>Controls:</strong></p>
                         <ul>
                             <li>Spacebar to jump</li>
+                            <li>Space after Game Over to play again</li>
                             <li>ESC to pause</li>
                         </ul>
                         <p><strong>Scoring:</strong> +5 points per obstacle passed</p>
@@ -708,6 +712,7 @@ function getGameHTML(chessJsSrc) {
                         <p><strong>Controls:</strong></p>
                         <ul>
                             <li>Move mouse to control paddle</li>
+                            <li>Space after Game Over to play again</li>
                             <li>ESC to pause</li>
                         </ul>
                         <p><strong>Scoring:</strong> +10 points per brick</p>
@@ -730,7 +735,7 @@ function getGameHTML(chessJsSrc) {
                         <ul>
                             <li>Easy: Random moves</li>
                             <li>Medium: Prefers captures</li>
-                            <li>Hard: Minimax AI (3 depth)</li>
+                            <li>Hard: Minimax AI (5 depth)</li>
                         </ul>
                         <p><strong>Features:</strong> Captured pieces shown on right, coordinates on edges</p>
                     \`;
@@ -979,10 +984,17 @@ function getGameHTML(chessJsSrc) {
             }
 
             handleKey(e) {
-                if ((e.code === 'Space' || e.key === ' ') && this.player.onGround && !gameState.isPaused) {
-                    e.preventDefault();
-                    this.player.vy = -8;
-                    this.player.onGround = false;
+                if (e.code === 'Space' || e.key === ' ') {
+                    if (gameState.isGameOver) {
+                        e.preventDefault();
+                        this.reset();
+                        return;
+                    }
+                    if (!gameState.isPaused && this.player.onGround) {
+                        e.preventDefault();
+                        this.player.vy = -8;
+                        this.player.onGround = false;
+                    }
                 }
             }
 
@@ -1094,6 +1106,9 @@ function getGameHTML(chessJsSrc) {
                     }
                 }
 
+                // Hide cursor while playing Breakout
+                canvas.style.cursor = 'none';
+
                 canvas.addEventListener('mousemove', this.mouseMoveHandler = (e) => {
                     const rect = canvas.getBoundingClientRect();
                     this.paddle.x = e.clientX - rect.left - this.paddle.width / 2;
@@ -1105,6 +1120,8 @@ function getGameHTML(chessJsSrc) {
             cleanup() {
                 if (this.animationId) cancelAnimationFrame(this.animationId);
                 canvas.removeEventListener('mousemove', this.mouseMoveHandler);
+                // Restore cursor for other games/menus
+                canvas.style.cursor = '';
             }
 
             reset() {
@@ -1123,6 +1140,13 @@ function getGameHTML(chessJsSrc) {
                     this.init();
                     updateScore();
                 }, 50);
+            }
+
+            handleKey(e) {
+                if ((e.code === 'Space' || e.key === ' ') && gameState.isGameOver) {
+                    e.preventDefault();
+                    this.reset();
+                }
             }
 
             update() {
@@ -1219,6 +1243,27 @@ function getGameHTML(chessJsSrc) {
                 this.capturedPieces = { white: [], black: [] };
                 this.legalMoves = [];
                 this.hoveredSquare = null;
+                this.lastMove = null;
+                this.lastMoveTimeMs = 0;
+                this.fadeAnimationId = null;
+                this.fadeDurationMs = 1200;
+            }
+
+            startFadeAnimation() {
+                const tick = () => {
+                    // If there is no pending last move or duration elapsed, stop
+                    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                    const elapsed = now - (this.lastMoveTimeMs || 0);
+                    if (!this.lastMove || elapsed >= this.fadeDurationMs) {
+                        this.fadeAnimationId = null;
+                        this.draw();
+                        return;
+                    }
+                    this.draw();
+                    this.fadeAnimationId = requestAnimationFrame(tick);
+                };
+                if (this.fadeAnimationId) cancelAnimationFrame(this.fadeAnimationId);
+                this.fadeAnimationId = requestAnimationFrame(tick);
             }
 
             init() {
@@ -1241,6 +1286,12 @@ function getGameHTML(chessJsSrc) {
                     this.thinking = false;
                     this.capturedPieces = { white: [], black: [] };
                     this.legalMoves = [];
+                    this.lastMove = null;
+                    this.lastMoveTimeMs = 0;
+                    if (this.fadeAnimationId) {
+                        cancelAnimationFrame(this.fadeAnimationId);
+                        this.fadeAnimationId = null;
+                    }
                     this.draw();
                 }, 100);
                 
@@ -1503,6 +1554,9 @@ function getGameHTML(chessJsSrc) {
                 
                 this.board[toRow][toCol] = piece;
                 this.board[fromRow][fromCol] = null;
+                this.lastMove = { fromRow, fromCol, toRow, toCol };
+                this.lastMoveTimeMs = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                this.startFadeAnimation();
                 this.moves.push(\`\${fromRow}\${fromCol}\${toRow}\${toCol}\`);
                 
                 const blackKing = this.findKing('k');
@@ -1573,7 +1627,7 @@ function getGameHTML(chessJsSrc) {
                 if (window.Chess) {
                     try {
                         const fen = this.boardToFEN();
-                        const depth = this.difficulty === 'hard' ? 3 : (this.difficulty === 'medium' ? 2 : 1);
+                        const depth = this.difficulty === 'hard' ? 5 : (this.difficulty === 'medium' ? 2 : 1);
                         const moveUci = this.getBestMoveWithChessJs(fen, depth);
                         if (moveUci) {
                             return this.algebraicToCoordinates(moveUci);
@@ -1852,6 +1906,14 @@ function getGameHTML(chessJsSrc) {
                 }
 
                 // Draw board squares
+                // Precompute last move fade alpha
+                let lastMoveAlpha = 0;
+                if (this.lastMove && this.lastMoveTimeMs) {
+                    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                    const elapsed = now - this.lastMoveTimeMs;
+                    const t = Math.min(1, Math.max(0, elapsed / (this.fadeDurationMs || 1200)));
+                    lastMoveAlpha = 1 - t;
+                }
                 for (let r = 0; r < 8; r++) {
                     for (let c = 0; c < 8; c++) {
                         const x = boardStartX + c * this.squareSize;
@@ -1860,6 +1922,24 @@ function getGameHTML(chessJsSrc) {
                         // Base square color (clean 2-bit aesthetic)
                         ctx.fillStyle = (r + c) % 2 === 0 ? '#373e47' : '#2d333b';
                         ctx.fillRect(x, y, this.squareSize, this.squareSize);
+                        
+                        // Last move highlights (from/to) as fading outlines
+                        if (this.lastMove && lastMoveAlpha > 0) {
+                            const isFrom = this.lastMove.fromRow === r && this.lastMove.fromCol === c;
+                            const isTo = this.lastMove.toRow === r && this.lastMove.toCol === c;
+                            if (isFrom || isTo) {
+                                const lineW = Math.max(2, Math.floor(this.squareSize * 0.08));
+                                ctx.lineWidth = lineW;
+                                // From = amber, To = accent green
+                                const a = Math.max(0, Math.min(1, lastMoveAlpha * 0.9));
+                                ctx.strokeStyle = isFrom
+                                    ? ('rgba(246, 193, 77, ' + a + ')')
+                                    : ('rgba(87, 171, 90, ' + a + ')');
+                                // inset the stroke so it’s visible inside the square bounds
+                                const inset = Math.max(1, Math.floor(lineW / 2));
+                                ctx.strokeRect(x + inset, y + inset, this.squareSize - inset * 2, this.squareSize - inset * 2);
+                            }
+                        }
                         
                         // Hover effect
                         if (this.hoveredSquare && this.hoveredSquare.row === r && this.hoveredSquare.col === c) {

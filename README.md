@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="MinigamesLogo.png" alt="Minigames Logo" width="96" />
+  <img src="images/MinigamesLogo.png" alt="Minigames Logo" width="96" />
 </p>
 
 # Minigames
@@ -16,20 +16,20 @@ Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you
 ## Screenshots
 
 <p align="center">
-  <img src="mainmenu.png" alt="Minigames Main Menu" width="420" />
+  <img src="images/mainmenu.png" alt="Minigames Main Menu" width="420" />
   <br/>
   <em>Main menu</em>
 </p>
 
 <p align="center">
-  <img src="spaceshooter.png" alt="Space Shooter" width="200" />
-  <img src="runner.png" alt="Runner" width="200" />
-  <img src="breakout.png" alt="Breakout" width="200" />
+  <img src="images/spaceshooter.png" alt="Space Shooter" width="300" />
+  <img src="images/runner.png" alt="Runner" width="300" />
+  <img src="images/breakout.png" alt="Breakout" width="300" />
 </p>
 <p align="center">
-  <img src="chess.png" alt="Chess" width="200" />
-  <img src="snake.png" alt="Snake" width="200" />
-  <img src="2048.png" alt="2048" width="200" />
+  <img src="images/chess.png" alt="Chess" width="300" />
+  <img src="images/snake.png" alt="Snake" width="300" />
+  <img src="images/2048.png" alt="2048" width="300" />
 </p>
 
 ## Install
