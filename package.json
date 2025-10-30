@@ -2,7 +2,7 @@
   "name": "minigames",
   "displayName": "Minigames",
   "description": "Six fun mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) for Cursor IDE and VS Code",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.74.0"
   },
