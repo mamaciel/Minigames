@@ -5,4 +5,8 @@ dist/
 .DS_Store
 *.log
 
+# Internal documentation (not for public repo)
+PUBLISHING_GUIDE.md
+PUBLISHING.md
+IMPROVEMENTS.md
 
