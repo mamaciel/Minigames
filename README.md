@@ -4,7 +4,7 @@
 
 # Minigames
 
-Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you can play right inside Cursor or VS Code — in a compact sidebar view that fits perfectly next to your editor.
+Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you can play right inside VS Code in a compact sidebar view that fits perfectly next to your editor!
 
 ## What you get
 
@@ -13,11 +13,30 @@ Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you
 - ⏸️ **Pause/Resume** with Escape
 - 🧭 **Works in the sidebar**; you can move it anywhere
 
+## Screenshots
+
+<p align="center">
+  <img src="mainmenu.png" alt="Minigames Main Menu" width="420" />
+  <br/>
+  <em>Main menu</em>
+</p>
+
+<p align="center">
+  <img src="spaceshooter.png" alt="Space Shooter" width="200" />
+  <img src="runner.png" alt="Runner" width="200" />
+  <img src="breakout.png" alt="Breakout" width="200" />
+</p>
+<p align="center">
+  <img src="chess.png" alt="Chess" width="200" />
+  <img src="snake.png" alt="Snake" width="200" />
+  <img src="2048.png" alt="2048" width="200" />
+</p>
+
 ## Install
 
 ### From the Extension Store (recommended)
 
-- **Cursor** or **VS Code**:
+- **VS Code**:
   1. Open the Extensions view (Ctrl+Shift+X).
   2. Search for "Minigames" by **marcosbuilds**.
   3. Click **Install**. Restart if prompted.
@@ -57,12 +76,11 @@ Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you
 
 ## Troubleshooting
 
-- **Can’t find the games?** Open Explorer (Ctrl+Shift+E) and look for **Minigames**, or run **Show Minigames**.
 - **Panel won’t move?** Right-click the Minigames title and use the Move options, or drag it to another panel.
 
 ## Compatibility
 
-- **Cursor** and **VS Code 1.74.0+**
+- **VS Code 1.74.0+**
 
 ## License
 
