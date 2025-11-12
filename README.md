@@ -4,7 +4,7 @@
 
 # Minigames
 
-Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you can play right inside VS Code in a compact sidebar view that fits perfectly next to your editor!
+Six classic and minimalist mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you can play right inside VS Code in a compact sidebar view that fits perfectly next to your editor!
 
 ## What you get
 
@@ -18,19 +18,24 @@ Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you
 <p align="center">
   <img src="images/mainmenu.png" alt="Minigames Main Menu" width="420" />
   <br/>
-  <em>Main menu</em>
+  <em>Main menu (Bottom left)</em>
 </p>
 
-<p align="center">
-  <img src="images/spaceshooter.png" alt="Space Shooter" width="300" />
-  <img src="images/runner.png" alt="Runner" width="300" />
-  <img src="images/breakout.png" alt="Breakout" width="300" />
-</p>
-<p align="center">
-  <img src="images/chess.png" alt="Chess" width="300" />
-  <img src="images/snake.png" alt="Snake" width="300" />
-  <img src="images/2048.png" alt="2048" width="300" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><img src="images/spaceshooter.png" alt="Space Shooter" width="300" /><br/><em>Space Shooter</em></td>
+    <td align="center"><img src="images/runner.png" alt="Runner" width="300" /><br/><em>Runner</em></td>
+    <td align="center"><img src="images/breakout.png" alt="Breakout" width="300" /><br/><em>Breakout</em></td>
+  </tr>
+  </table>
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="images/snake.png" alt="Snake" width="300" /><br/><em>Snake</em></td>
+    <td align="center"><img src="images/chess.png" alt="Chess" width="300" /><br/><em>Chess</em></td>
+    <td align="center"><img src="images/2048.png" alt="2048" width="300" /><br/><em>2048</em></td>
+  </tr>
+  </table>
 
 ## Install
 
@@ -40,12 +45,6 @@ Six classic mini games (Space Shooter, Runner, Breakout, Chess, Snake, 2048) you
   1. Open the Extensions view (Ctrl+Shift+X).
   2. Search for "Minigames" by **marcosbuilds**.
   3. Click **Install**. Restart if prompted.
-
-### Install from a VSIX file (offline/manual)
-
-1. Open the Extensions view (Ctrl+Shift+X).
-2. Click the "…" menu in the top-right and choose **Install from VSIX…**.
-3. Select the `.vsix` file (e.g., `minigames-0.0.1.vsix`).
 
 ## Open the games
 
@@ -88,4 +87,6 @@ MIT
 
 ## Feedback
 
-Found an issue or have a suggestion? Open an issue on the project homepage.
+Found an issue or have a suggestion? Open an issue on the project homepage or contact me at [marcosmaciel.tech](https://marcosmaciel.tech).
+
+Cheers!
