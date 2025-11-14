@@ -479,6 +479,23 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             games: {}
         };
 
+        const chessDifficultyConfig = {
+            easy: { type: 'random', label: 'Easy', maxTimeMs: 200 },
+            medium: { type: 'heuristic', label: 'Medium', maxTimeMs: 400 },
+            hard: { type: 'engine', label: 'Hard', depth: 3, maxTimeMs: 1500 }
+        };
+
+        const chessPieceValues = {
+            p: 100,
+            n: 320,
+            b: 330,
+            r: 500,
+            q: 900,
+            k: 20000
+        };
+
+        const chessCenterSquares = new Set(['33', '34', '43', '44']);
+
         // DOM elements
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -498,9 +515,14 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
         const helpOverlay = document.getElementById('helpOverlay');
         const helpContent = document.getElementById('helpContent');
         const closeHelpBtn = document.getElementById('closeHelpBtn');
+        let logicalWidth = canvas.clientWidth || canvas.offsetWidth || 0;
+        let logicalHeight = canvas.clientHeight || canvas.offsetHeight || 0;
+
+        const getCanvasWidth = () => logicalWidth || canvas.clientWidth || canvas.offsetWidth || 0;
+        const getCanvasHeight = () => logicalHeight || canvas.clientHeight || canvas.offsetHeight || 0;
         const updateChessDifficulty = () => {
             if (gameManager.currentGame instanceof ChessGame) {
-                gameManager.currentGame.difficulty = difficultySelect.value;
+                gameManager.currentGame.setDifficulty(difficultySelect.value);
             }
         };
         difficultySelect.addEventListener('change', updateChessDifficulty);
@@ -532,6 +554,10 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 canvas.width = width;
                 canvas.height = height;
             }
+            logicalWidth = displayWidth;
+            logicalHeight = displayHeight;
+            canvas.style.width = displayWidth + 'px';
+            canvas.style.height = displayHeight + 'px';
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.scale(dpr, dpr);
             if (gameManager.currentGame && typeof gameManager.currentGame.draw === 'function') {
@@ -643,7 +669,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                     difficultySelect.style.display = 'inline-block';
                     pauseBtn.style.display = 'none'; // No pause for turn-based game
                     gameManager.currentGame = new ChessGame();
-                    gameManager.currentGame.difficulty = difficultySelect.value;
+                    gameManager.currentGame.setDifficulty(difficultySelect.value);
                     break;
                 case 'snake':
                     gameTitle.textContent = 'Snake';
@@ -847,8 +873,8 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             }
 
             init() {
-                this.player.y = canvas.height / 2;
-                this.mouseY = canvas.height / 2;
+                this.player.y = getCanvasHeight() / 2;
+                this.mouseY = getCanvasHeight() / 2;
                 this.bullets = [];
                 this.targets = [];
                 canvas.addEventListener('mousemove', this.mouseMoveHandler = (e) => {
@@ -875,8 +901,8 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 gameState.isGameOver = false;
                 this.bullets = [];
                 this.targets = [];
-                this.player.y = canvas.height / 2;
-                this.mouseY = canvas.height / 2;
+                this.player.y = getCanvasHeight() / 2;
+                this.mouseY = getCanvasHeight() / 2;
                 pauseOverlay.classList.remove('show');
                 gameOverOverlay.classList.remove('show');
                 updateScore();
@@ -900,12 +926,12 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
                 const targetY = this.mouseY - this.player.height / 2;
                 this.player.y += (targetY - this.player.y) * 0.1;
-                this.player.y = Math.max(0, Math.min(canvas.height - this.player.height, this.player.y));
+                this.player.y = Math.max(0, Math.min(getCanvasHeight() - this.player.height, this.player.y));
 
                 if (Math.random() < 0.015) {
                     this.targets.push({
-                        x: canvas.width,
-                        y: Math.random() * (canvas.height - 12),
+                        x: getCanvasWidth(),
+                        y: Math.random() * (getCanvasHeight() - 12),
                         width: 12,
                         height: 12
                     });
@@ -913,7 +939,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
                 for (let i = this.bullets.length - 1; i >= 0; i--) {
                     this.bullets[i].x += 6;
-                    if (this.bullets[i].x > canvas.width) {
+                    if (this.bullets[i].x > getCanvasWidth()) {
                         this.bullets.splice(i, 1);
                         continue;
                     }
@@ -951,7 +977,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
             draw() {
                 ctx.fillStyle = colors.background;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
                 ctx.fillStyle = colors.player;
                 ctx.beginPath();
@@ -994,7 +1020,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             }
 
             init() {
-                this.player.y = canvas.height - this.player.height - 5;
+                this.player.y = getCanvasHeight() - this.player.height - 5;
                 this.player.vy = 0;
                 this.player.onGround = true;
                 this.obstacles = [];
@@ -1014,7 +1040,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 gameState.isPaused = false;
                 gameState.isGameOver = false;
                 this.obstacles = [];
-                this.player.y = canvas.height - this.player.height - 5;
+                this.player.y = getCanvasHeight() - this.player.height - 5;
                 this.player.vy = 0;
                 this.player.onGround = true;
                 pauseOverlay.classList.remove('show');
@@ -1048,7 +1074,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 this.player.y += this.player.vy;
 
                 // Ground collision
-                const groundY = canvas.height - this.player.height - 5;
+                const groundY = getCanvasHeight() - this.player.height - 5;
                 if (this.player.y >= groundY) {
                     this.player.y = groundY;
                     this.player.vy = 0;
@@ -1058,7 +1084,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 // Spawn obstacles
                 if (Math.random() < 0.01) {
                     this.obstacles.push({
-                        x: canvas.width,
+                        x: getCanvasWidth(),
                         y: groundY,
                         width: 8,
                         height: 16
@@ -1090,11 +1116,11 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
             draw() {
                 ctx.fillStyle = colors.background;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
                 // Ground
                 ctx.fillStyle = colors.target;
-                ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
+                ctx.fillRect(0, getCanvasHeight() - 5, getCanvasWidth(), 5);
 
                 // Player
                 ctx.fillStyle = colors.player;
@@ -1124,9 +1150,9 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             }
 
             init() {
-                this.paddle.y = canvas.height - 15;
-                this.ball.x = canvas.width / 2;
-                this.ball.y = canvas.height - 25;
+                this.paddle.y = getCanvasHeight() - 15;
+                this.ball.x = getCanvasWidth() / 2;
+                this.ball.y = getCanvasHeight() - 25;
                 this.ball.vx = this.baseSpeed;
                 this.ball.vy = -this.baseSpeed;
                 this.speedMultiplier = 1.0;
@@ -1135,7 +1161,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 // Create bricks
                 const rows = 3;
                 const cols = 6;
-                const brickWidth = (canvas.width - 20) / cols - 4;
+                const brickWidth = (getCanvasWidth() - 20) / cols - 4;
                 const brickHeight = 10;
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
@@ -1154,7 +1180,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 canvas.addEventListener('mousemove', this.mouseMoveHandler = (e) => {
                     const rect = canvas.getBoundingClientRect();
                     this.paddle.x = e.clientX - rect.left - this.paddle.width / 2;
-                    this.paddle.x = Math.max(0, Math.min(canvas.width - this.paddle.width, this.paddle.x));
+                    this.paddle.x = Math.max(0, Math.min(getCanvasWidth() - this.paddle.width, this.paddle.x));
                 });
                 this.gameLoop();
             }
@@ -1199,7 +1225,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 this.ball.y += this.ball.vy * this.speedMultiplier;
 
                 // Ball walls
-                if (this.ball.x <= this.ball.radius || this.ball.x >= canvas.width - this.ball.radius) {
+                if (this.ball.x <= this.ball.radius || this.ball.x >= getCanvasWidth() - this.ball.radius) {
                     this.ball.vx = -this.ball.vx;
                 }
                 if (this.ball.y <= this.ball.radius) {
@@ -1236,7 +1262,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 }
 
                 // Game over if ball falls
-                if (this.ball.y > canvas.height) {
+                if (this.ball.y > getCanvasHeight()) {
                     gameState.isGameOver = true;
                     finalScoreElement.textContent = \`Final Score: \${gameState.score}\`;
                     gameOverOverlay.classList.add('show');
@@ -1245,7 +1271,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
             draw() {
                 ctx.fillStyle = colors.background;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
                 // Paddle
                 ctx.fillStyle = colors.player;
@@ -1289,6 +1315,9 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 this.lastMoveTimeMs = 0;
                 this.fadeAnimationId = null;
                 this.fadeDurationMs = 1200;
+                this.difficulty = 'easy';
+                this.aiAbortController = null;
+                this.maxEngineTimeMs = chessDifficultyConfig.easy.maxTimeMs;
             }
 
             startFadeAnimation() {
@@ -1308,6 +1337,41 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 this.fadeAnimationId = requestAnimationFrame(tick);
             }
 
+            getDifficultySettings() {
+                return chessDifficultyConfig[this.difficulty] || chessDifficultyConfig.easy;
+            }
+
+            setDifficulty(level) {
+                const safeLevel = chessDifficultyConfig[level] ? level : 'easy';
+                this.difficulty = safeLevel;
+                this.maxEngineTimeMs = this.getDifficultySettings().maxTimeMs || 800;
+                if (this.thinking) {
+                    this.cancelThinking(true);
+                }
+            }
+
+            cancelThinking(shouldRestart = false) {
+                if (this.aiAbortController) {
+                    this.aiAbortController.aborted = true;
+                }
+                this.aiAbortController = null;
+                this.thinking = false;
+                if (shouldRestart && !this.isPlayerTurn && !this.gameOver) {
+                    const label = this.getDifficultySettings().label || 'AI';
+                    scoreElement.textContent = `AI Thinking (${label})...`;
+                    setTimeout(() => this.makeAIMove(), 0);
+                }
+            }
+
+            createAbortSignal() {
+                if (this.aiAbortController) {
+                    this.aiAbortController.aborted = true;
+                }
+                const token = { aborted: false };
+                this.aiAbortController = token;
+                return token;
+            }
+
             init() {
                 // Make canvas bigger for chess
                 canvas.classList.add('chess-board');
@@ -1316,8 +1380,8 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 // Wait for resize, then calculate square size
                 setTimeout(() => {
                     // Leave space for coordinates and captured pieces
-                    const availableWidth = canvas.width - 50; // Space for captured pieces
-                    const availableHeight = canvas.height - 30; // Space for coordinates
+                    const availableWidth = getCanvasWidth() - 50; // Space for captured pieces
+                    const availableHeight = getCanvasHeight() - 30; // Space for coordinates
                     const size = Math.min(availableWidth, availableHeight);
                     this.squareSize = size / 8;
                     this.initBoard();
@@ -1625,28 +1689,34 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
             async makeAIMove() {
                 if (this.gameOver || this.isPlayerTurn) return;
-                
+                const abortSignal = this.createAbortSignal();
+                const settings = this.getDifficultySettings();
+                const label = settings.label || 'AI';
                 this.thinking = true;
+                scoreElement.textContent = `AI Thinking (${label})...`;
                 this.draw();
 
                 try {
-                    const mode = (this.difficulty || 'easy');
-                    if (mode === 'easy') {
+                    if (settings.type === 'random') {
                         this.makeRandomMove();
-                    } else if (mode === 'medium') {
+                    } else if (settings.type === 'heuristic') {
                         const move = this.chooseHeuristicMove();
-                        if (move) this.executeAIMove(move); else this.makeRandomMove();
+                        if (move) {
+                            this.executeAIMove(move);
+                        } else {
+                            this.makeRandomMove();
+                        }
                     } else {
-                        // hard
-                        let move = await this.getAIMoveFromLLM();
-                        if (Math.random() < 0.2) {
-                            const alt = this.chooseHeuristicMove();
-                            if (alt) move = alt;
+                        let move = await this.getEngineMove(settings, abortSignal);
+                        if (abortSignal.aborted || this.gameOver) {
+                            return;
+                        }
+                        if (!move && Math.random() < 0.2) {
+                            move = this.chooseHeuristicMove();
                         }
                         if (move) {
                             const executed = this.executeAIMove(move);
                             if (!executed) {
-                                console.error('Failed to execute AI move, falling back to random');
                                 this.makeRandomMove();
                             }
                         } else {
@@ -1654,52 +1724,78 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                         }
                     }
                 } catch (error) {
-                    console.error('AI move error:', error);
-                    this.makeRandomMove();
+                    if (!abortSignal.aborted) {
+                        console.error('AI move error:', error);
+                        this.makeRandomMove();
+                    }
+                } finally {
+                    if (abortSignal.aborted) {
+                        return;
+                    }
+                    this.thinking = false;
+                    this.aiAbortController = null;
+                    this.isPlayerTurn = true;
+                    if (!this.gameOver) {
+                        scoreElement.textContent = 'Your Turn (White)';
+                    }
+                    this.draw();
                 }
-                
-                this.thinking = false;
-                this.isPlayerTurn = true;
-                scoreElement.textContent = 'Your Turn (White)';
-                this.draw();
             }
 
-            async getAIMoveFromLLM() {
-                // Prefer chess.js if available (bundled locally)
+            async getEngineMove(settings, abortSignal) {
                 if (window.Chess) {
                     try {
                         const fen = this.boardToFEN();
-                        const depth = this.difficulty === 'hard' ? 5 : (this.difficulty === 'medium' ? 2 : 1);
-                        const moveUci = this.getBestMoveWithChessJs(fen, depth);
+                        const moveUci = this.getBestMoveWithChessJs(
+                            fen,
+                            settings.depth || 3,
+                            abortSignal,
+                            settings.maxTimeMs || this.maxEngineTimeMs
+                        );
+                        if (abortSignal?.aborted) {
+                            return null;
+                        }
                         if (moveUci) {
                             return this.algebraicToCoordinates(moveUci);
                         }
                     } catch (e) {
-                        console.error('chess.js engine error:', e);
+                        if (!abortSignal?.aborted) {
+                            console.error('chess.js engine error:', e);
+                        }
                     }
                 }
 
-                // Fallback: existing heuristic if chess.js not available
+                if (abortSignal?.aborted) {
+                    return null;
+                }
+
                 const alt = this.chooseHeuristicMove();
                 if (alt) return alt;
-                this.makeRandomMove();
-                return null;
+                return this.makeRandomMove(false);
             }
 
-            getBestMoveWithChessJs(fen, depth) {
-                // Simple minimax with alpha-beta using chess.js
-                const game = new Chess(fen);
+            getBestMoveWithChessJs(fen, depth, abortSignal, timeBudgetMs) {
+                if (!window.Chess) return null;
+                const ChessEngine = window.Chess;
+                const game = new ChessEngine(fen);
+                const getNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                const startTime = getNow();
+                const shouldAbort = () => {
+                    if (abortSignal && abortSignal.aborted) return true;
+                    if (typeof timeBudgetMs === 'number' && timeBudgetMs >= 0) {
+                        if (getNow() - startTime > timeBudgetMs) return true;
+                    }
+                    return false;
+                };
 
-                const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
                 const evaluateGame = (g) => {
-                    // Positive favors black (AI), negative favors white (player)
                     const board = g.board();
                     let score = 0;
                     for (let r = 0; r < 8; r++) {
                         for (let c = 0; c < 8; c++) {
                             const sq = board[r][c];
                             if (!sq) continue;
-                            const val = pieceValues[sq.type] || 0;
+                            const val = chessPieceValues[sq.type] || 0;
                             score += sq.color === 'b' ? val : -val;
                         }
                     }
@@ -1707,6 +1803,9 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 };
 
                 const minimax = (g, d, alpha, beta, isMax) => {
+                    if (shouldAbort()) {
+                        throw new Error('aborted');
+                    }
                     if (d === 0 || g.isGameOver()) {
                         return evaluateGame(g);
                     }
@@ -1736,20 +1835,45 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                     }
                 };
 
-                const moves = game.moves({ verbose: true });
-                if (!moves.length) return null;
-                let best = null;
-                let bestScore = -Infinity;
-                for (const m of moves) {
-                    game.move(m);
-                    const score = minimax(game, Math.max(0, depth - 1), -Infinity, Infinity, false);
-                    game.undo();
-                    if (score > bestScore) {
-                        bestScore = score;
-                        best = m;
+                const searchDepth = (targetDepth) => {
+                    const moves = game.moves({ verbose: true });
+                    if (!moves.length) return null;
+                    let best = null;
+                    let bestScore = -Infinity;
+                    for (const m of moves) {
+                        if (shouldAbort()) {
+                            throw new Error('aborted');
+                        }
+                        game.move(m);
+                        const score = minimax(game, targetDepth - 1, -Infinity, Infinity, false);
+                        game.undo();
+                        if (score > bestScore) {
+                            bestScore = score;
+                            best = m;
+                        }
+                    }
+                    return best ? (best.from + best.to + (best.promotion || '')) : null;
+                };
+
+                let bestMove = null;
+                const maxDepth = Math.max(1, depth || 1);
+                for (let currentDepth = 1; currentDepth <= maxDepth; currentDepth++) {
+                    try {
+                        const candidate = searchDepth(currentDepth);
+                        if (candidate) {
+                            bestMove = candidate;
+                        }
+                        if (shouldAbort()) {
+                            break;
+                        }
+                    } catch (error) {
+                        if (error.message === 'aborted') {
+                            break;
+                        }
+                        throw error;
                     }
                 }
-                return best ? (best.from + best.to + (best.promotion || '')) : null;
+                return bestMove;
             }
 
             boardToFEN() {
@@ -1834,50 +1958,69 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 };
             }
 
-            makeRandomMove() {
-                const possibleMoves = [];
+            getAllAIMoves() {
+                const moves = [];
                 for (let r = 0; r < 8; r++) {
                     for (let c = 0; c < 8; c++) {
                         const piece = this.board[r][c];
-                        if (piece && piece === piece.toLowerCase()) {
-                            for (let tr = 0; tr < 8; tr++) {
-                                for (let tc = 0; tc < 8; tc++) {
-                                    if (this.isValidAIMove(r, c, tr, tc)) {
-                                        possibleMoves.push({ fromRow: r, fromCol: c, toRow: tr, toCol: tc });
-                                    }
+                        if (!piece || piece !== piece.toLowerCase()) continue;
+                        for (let tr = 0; tr < 8; tr++) {
+                            for (let tc = 0; tc < 8; tc++) {
+                                if (this.isValidAIMove(r, c, tr, tc)) {
+                                    moves.push({
+                                        fromRow: r,
+                                        fromCol: c,
+                                        toRow: tr,
+                                        toCol: tc,
+                                        capture: this.board[tr][tc]
+                                    });
                                 }
                             }
                         }
                     }
                 }
-                
-                if (possibleMoves.length > 0) {
-                    const move = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                return moves;
+            }
+
+            makeRandomMove(applyImmediately = true) {
+                const moves = this.getAllAIMoves();
+                if (!moves.length) return null;
+                const move = moves[Math.floor(Math.random() * moves.length)];
+                if (applyImmediately) {
                     this.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
                 }
+                return move;
             }
 
             chooseHeuristicMove() {
-                const captures = [];
-                const others = [];
-                for (let r = 0; r < 8; r++) {
-                    for (let c = 0; c < 8; c++) {
-                        const piece = this.board[r][c];
-                        if (piece && piece === piece.toLowerCase()) {
-                            for (let tr = 0; tr < 8; tr++) {
-                                for (let tc = 0; tc < 8; tc++) {
-                                    if (this.isValidAIMove(r, c, tr, tc)) {
-                                        const isCapture = !!(this.board[tr][tc] && this.board[tr][tc] === this.board[tr][tc].toUpperCase());
-                                        (isCapture ? captures : others).push({ fromRow: r, fromCol: c, toRow: tr, toCol: tc });
-                                    }
-                                }
-                            }
-                        }
+                const moves = this.getAllAIMoves();
+                if (!moves.length) return null;
+                const whiteKing = this.findKing('K');
+                const scoredMoves = moves.map((move) => {
+                    const piece = this.board[move.fromRow][move.fromCol];
+                    const moverValue = chessPieceValues[piece.toLowerCase()] || 0;
+                    const captureValue = move.capture ? (chessPieceValues[move.capture.toLowerCase()] || 0) : 0;
+                    let score = captureValue * 10;
+                    score += moverValue * 0.1;
+                    if (chessCenterSquares.has(`${move.toRow}${move.toCol}`)) {
+                        score += 40;
                     }
-                }
-                if (captures.length) return captures[Math.floor(Math.random() * captures.length)];
-                if (others.length) return others[Math.floor(Math.random() * others.length)];
-                return null;
+                    if (piece === 'p') {
+                        score += (7 - move.toRow) * 2;
+                    }
+                    if (whiteKing) {
+                        const dist = Math.hypot(whiteKing.row - move.toRow, whiteKing.col - move.toCol);
+                        score += Math.max(0, 25 - dist * 5);
+                    }
+                    if (!move.capture) {
+                        score += 5;
+                    }
+                    return { move, score };
+                });
+                scoredMoves.sort((a, b) => b.score - a.score);
+                const bestScore = scoredMoves[0].score;
+                const topMoves = scoredMoves.filter(entry => entry.score >= bestScore - 15);
+                return topMoves[Math.floor(Math.random() * topMoves.length)].move;
             }
 
             isValidAIMove(fromRow, fromCol, toRow, toCol) {
@@ -1927,7 +2070,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 if (this.squareSize === 0) return; // Wait for initialization
                 
                 ctx.fillStyle = '#1c2128';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
                 const boardStartX = 20;
                 const boardStartY = 15;
@@ -2056,11 +2199,11 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 // Thinking overlay
                 if (this.thinking) {
                     ctx.fillStyle = 'rgba(28, 33, 40, 0.85)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
                     ctx.fillStyle = '#adbac7';
                     ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('AI thinking...', canvas.width / 2, canvas.height / 2);
+                    ctx.fillText('AI thinking...', getCanvasWidth() / 2, getCanvasHeight() / 2);
                 }
             }
 
@@ -2092,7 +2235,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             }
 
             init() {
-                this.cellSize = Math.floor(Math.min(canvas.width, canvas.height) / this.gridSize);
+                this.cellSize = Math.floor(Math.min(getCanvasWidth(), getCanvasHeight()) / this.gridSize);
                 this.snake = [
                     { x: 10, y: 10 },
                     { x: 9, y: 10 },
@@ -2196,10 +2339,10 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
             draw() {
                 ctx.fillStyle = colors.background;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
-                const offsetX = (canvas.width - this.cellSize * this.gridSize) / 2;
-                const offsetY = (canvas.height - this.cellSize * this.gridSize) / 2;
+                const offsetX = (getCanvasWidth() - this.cellSize * this.gridSize) / 2;
+                const offsetY = (getCanvasHeight() - this.cellSize * this.gridSize) / 2;
 
                 // Draw grid (subtle)
                 ctx.strokeStyle = '#2d333b';
@@ -2254,7 +2397,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             }
 
             init() {
-                const size = Math.min(canvas.width, canvas.height) - 20;
+                const size = Math.min(getCanvasWidth(), getCanvasHeight()) - 20;
                 this.cellSize = size / this.gridSize;
                 this.grid = Array(this.gridSize).fill().map(() => Array(this.gridSize).fill(0));
                 this.addRandomTile();
@@ -2470,10 +2613,10 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
             draw() {
                 ctx.fillStyle = colors.background;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
-                const offsetX = (canvas.width - this.cellSize * this.gridSize) / 2;
-                const offsetY = (canvas.height - this.cellSize * this.gridSize) / 2;
+                const offsetX = (getCanvasWidth() - this.cellSize * this.gridSize) / 2;
+                const offsetY = (getCanvasHeight() - this.cellSize * this.gridSize) / 2;
                 const padding = 4;
 
                 for (let r = 0; r < this.gridSize; r++) {
