@@ -7,10 +7,25 @@ class GameViewProvider {
     this._view = undefined;
   }
 
+  dispose() {
+    if (this._view) {
+      this._view.dispose();
+      this._view = undefined;
+    }
+  }
+
   resolveWebviewView(webviewView, context, _token) {
     this._view = webviewView;
+    const disposables = this._context.subscriptions;
+    disposables.push(
+      webviewView.onDidDispose(() => {
+        this._view = undefined;
+      })
+    );
 
-    webviewView.webview.options = {
+    const webview = webviewView.webview;
+
+    webview.options = {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.file(path.join(this._context.extensionPath, "media")),
@@ -19,16 +34,21 @@ class GameViewProvider {
     };
 
     // Prepare local URI for chess.js
-    const chessJsUri = webviewView.webview.asWebviewUri(
+    const chessJsUri = webview.asWebviewUri(
       vscode.Uri.file(
         path.join(this._context.extensionPath, ".media", "chess.js")
       )
     );
 
-    webviewView.webview.html = getGameHTML(String(chessJsUri));
+    const nonce = getNonce();
+    webview.html = getGameHTML({
+      chessJsSrc: String(chessJsUri),
+      cspSource: webview.cspSource,
+      nonce,
+    });
 
     // Handle messages from the webview
-    webviewView.webview.onDidReceiveMessage(
+    webview.onDidReceiveMessage(
       (message) => {
         switch (message.command) {
           case "alert":
@@ -54,23 +74,32 @@ function activate(context) {
   );
 
   // Register command to manually show/reveal the game
-  let disposable = vscode.commands.registerCommand(
+  const showMinigames = vscode.commands.registerCommand(
     "minigames.showGame",
-    function () {
-      vscode.commands.executeCommand("workbench.view.explorer");
+    async () => {
+      try {
+        await vscode.commands.executeCommand("workbench.view.explorer");
+        await vscode.commands.executeCommand("minigames.focus");
+      } catch (error) {
+        console.error("Failed to focus Minigames view:", error);
+        vscode.window.showErrorMessage(
+          "Unable to focus the Minigames view. Check the logs for details."
+        );
+      }
     }
   );
 
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(showMinigames);
 }
 
-function getGameHTML(chessJsSrc) {
+function getGameHTML({ chessJsSrc, cspSource, nonce }) {
   return `<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Games</title>
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} https: data:; script-src 'nonce-${nonce}' ${cspSource}; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource} https: data:;">
+      <title>Mini Games</title>
     <style>
         * {
             margin: 0;
@@ -380,8 +409,8 @@ function getGameHTML(chessJsSrc) {
             color: #e6edf3;
         }
     </style>
-    <!-- Load chess.js as an ES module and expose Chess on window -->
-    <script type="module">
+      <!-- Load chess.js as an ES module and expose Chess on window -->
+      <script type="module" nonce="${nonce}">
         try {
             const mod = await import('${chessJsSrc}');
             // chess.js exports { Chess }
@@ -442,7 +471,7 @@ function getGameHTML(chessJsSrc) {
         </div>
     </div>
 
-    <script>
+      <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         // Game manager
         const gameManager = {
@@ -469,6 +498,12 @@ function getGameHTML(chessJsSrc) {
         const helpOverlay = document.getElementById('helpOverlay');
         const helpContent = document.getElementById('helpContent');
         const closeHelpBtn = document.getElementById('closeHelpBtn');
+        const updateChessDifficulty = () => {
+            if (gameManager.currentGame instanceof ChessGame) {
+                gameManager.currentGame.difficulty = difficultySelect.value;
+            }
+        };
+        difficultySelect.addEventListener('change', updateChessDifficulty);
 
         // Colors - Clean Cursor IDE aesthetic
         const colors = {
@@ -483,10 +518,23 @@ function getGameHTML(chessJsSrc) {
 
         // Resize canvas
         function resizeCanvas() {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-            // Redraw current game after resize
-            if (gameManager.currentGame && gameManager.currentGame.draw) {
+            const dpr = window.devicePixelRatio || 1;
+            const displayWidth = canvas.clientWidth || canvas.offsetWidth;
+            const displayHeight = canvas.clientHeight || canvas.offsetHeight;
+            if (!displayWidth || !displayHeight) {
+                canvas.width = 0;
+                canvas.height = 0;
+                return;
+            }
+            const width = Math.floor(displayWidth * dpr);
+            const height = Math.floor(displayHeight * dpr);
+            if (canvas.width !== width || canvas.height !== height) {
+                canvas.width = width;
+                canvas.height = height;
+            }
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+            if (gameManager.currentGame && typeof gameManager.currentGame.draw === 'function') {
                 gameManager.currentGame.draw();
             }
         }
@@ -536,6 +584,7 @@ function getGameHTML(chessJsSrc) {
             menuBtn.style.display = 'none';
             pauseBtn.style.display = 'none';
             resetBtn.style.display = 'none';
+            difficultySelect.style.display = 'none';
             gameTitle.textContent = '';
             scoreElement.textContent = '';
             scoreElement.style.display = 'none';
@@ -560,6 +609,7 @@ function getGameHTML(chessJsSrc) {
             gameState.isGameOver = false;
             pauseOverlay.classList.remove('show');
             gameOverOverlay.classList.remove('show');
+            helpOverlay.classList.remove('show');
             updateScore();
 
             // Stop current game
@@ -594,12 +644,6 @@ function getGameHTML(chessJsSrc) {
                     pauseBtn.style.display = 'none'; // No pause for turn-based game
                     gameManager.currentGame = new ChessGame();
                     gameManager.currentGame.difficulty = difficultySelect.value;
-                    // Update difficulty when changed
-                    difficultySelect.addEventListener('change', () => {
-                        if (gameManager.currentGame instanceof ChessGame) {
-                            gameManager.currentGame.difficulty = difficultySelect.value;
-                        }
-                    });
                     break;
                 case 'snake':
                     gameTitle.textContent = 'Snake';
@@ -626,7 +670,7 @@ function getGameHTML(chessJsSrc) {
 
         // Pause/Resume function
         function togglePause() {
-            if (gameState.isGameOver) return;
+            if (!gameManager.currentGame || gameState.isGameOver) return;
             gameState.isPaused = !gameState.isPaused;
             if (gameState.isPaused) {
                 pauseOverlay.classList.add('show');
@@ -954,8 +998,6 @@ function getGameHTML(chessJsSrc) {
                 this.player.vy = 0;
                 this.player.onGround = true;
                 this.obstacles = [];
-                canvas.removeEventListener('mousemove', this.mouseMoveHandler);
-                canvas.removeEventListener('click', this.clickHandler);
                 this.gameLoop();
             }
 
@@ -2461,9 +2503,20 @@ function getGameHTML(chessJsSrc) {
 </html>`;
 }
 
+function getNonce() {
+  const charset =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 32; i++) {
+    result += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return result;
+}
+
 function deactivate() {
-  if (gamePanel) {
-    gamePanel.dispose();
+  if (gameViewProvider) {
+    gameViewProvider.dispose();
+    gameViewProvider = undefined;
   }
 }
 
