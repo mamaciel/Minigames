@@ -7,13 +7,6 @@ class GameViewProvider {
     this._view = undefined;
   }
 
-  dispose() {
-    if (this._view) {
-      this._view.dispose();
-      this._view = undefined;
-    }
-  }
-
   resolveWebviewView(webviewView, context, _token) {
     this._view = webviewView;
     const disposables = this._context.subscriptions;
@@ -59,6 +52,13 @@ class GameViewProvider {
       null,
       this._context.subscriptions
     );
+  }
+
+  dispose() {
+    if (this._view) {
+      this._view.dispose();
+      this._view = undefined;
+    }
   }
 }
 
@@ -481,8 +481,24 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
         const chessDifficultyConfig = {
             easy: { type: 'random', label: 'Easy', maxTimeMs: 200 },
-            medium: { type: 'heuristic', label: 'Medium', maxTimeMs: 400 },
-            hard: { type: 'engine', label: 'Hard', depth: 3, maxTimeMs: 1500 }
+            medium: {
+                type: 'engine',
+                label: 'Medium',
+                depth: 3,
+                maxTimeMs: 800,
+                mixRandomness: 0.2,
+                allowHeuristicFallback: true,
+                preferAggressive: false
+            },
+            hard: {
+                type: 'engine',
+                label: 'Hard',
+                depth: 5,
+                maxTimeMs: 2200,
+                mixRandomness: 0,
+                allowHeuristicFallback: true,
+                preferAggressive: true
+            }
         };
 
         const chessPieceValues = {
@@ -520,12 +536,42 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
 
         const getCanvasWidth = () => logicalWidth || canvas.clientWidth || canvas.offsetWidth || 0;
         const getCanvasHeight = () => logicalHeight || canvas.clientHeight || canvas.offsetHeight || 0;
-        const updateChessDifficulty = () => {
+
+        const difficultyUI = {
+            showSetup() {
+                difficultySelect.style.display = 'inline-block';
+                difficultySelect.disabled = false;
+                difficultySelect.dataset.state = 'setup';
+                difficultySelect.title = 'Select a difficulty before starting a chess match.';
+            },
+            hide() {
+                difficultySelect.style.display = 'none';
+                difficultySelect.disabled = true;
+                difficultySelect.dataset.state = 'hidden';
+                difficultySelect.title = '';
+            },
+            lock() {
+                difficultySelect.style.display = 'none';
+                difficultySelect.disabled = true;
+                difficultySelect.dataset.state = 'locked';
+                difficultySelect.title = 'Reset the match to change difficulty.';
+            }
+        };
+
+        const applyChessDifficulty = () => {
             if (gameManager.currentGame instanceof ChessGame) {
+                if (gameManager.currentGame.isDifficultySelectionLocked()) {
+                    // Revert UI change if selection is currently locked
+                    if (difficultySelect.value !== gameManager.currentGame.difficulty) {
+                        difficultySelect.value = gameManager.currentGame.difficulty;
+                    }
+                    return;
+                }
                 gameManager.currentGame.setDifficulty(difficultySelect.value);
             }
         };
-        difficultySelect.addEventListener('change', updateChessDifficulty);
+
+        difficultySelect.addEventListener('change', applyChessDifficulty);
 
         // Colors - Clean Cursor IDE aesthetic
         const colors = {
@@ -536,6 +582,85 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             header: '#2d333b',
             dark: '#1c2128',
             accent: '#57ab5a'
+        };
+
+        // Chess evaluation constants
+        const CHESS_PIECE_VALUES = Object.freeze({
+            p: 100,
+            n: 320,
+            b: 330,
+            r: 500,
+            q: 900,
+            k: 20000
+        });
+
+        const CHESS_PST = Object.freeze({
+            p: [
+                0, 0, 0, 0, 0, 0, 0, 0,
+                5, 10, 10, -20, -20, 10, 10, 5,
+                5, -5, -10, 0, 0, -10, -5, 5,
+                0, 0, 0, 20, 20, 0, 0, 0,
+                5, 5, 10, 25, 25, 10, 5, 5,
+                10, 10, 20, 30, 30, 20, 10, 10,
+                50, 50, 50, 50, 50, 50, 50, 50,
+                0, 0, 0, 0, 0, 0, 0, 0
+            ],
+            n: [
+                -50, -40, -30, -30, -30, -30, -40, -50,
+                -40, -20, 0, 5, 5, 0, -20, -40,
+                -30, 5, 10, 15, 15, 10, 5, -30,
+                -30, 0, 15, 20, 20, 15, 0, -30,
+                -30, 5, 15, 20, 20, 15, 5, -30,
+                -30, 0, 10, 15, 15, 10, 0, -30,
+                -40, -20, 0, 0, 0, 0, -20, -40,
+                -50, -40, -30, -30, -30, -30, -40, -50
+            ],
+            b: [
+                -20, -10, -10, -10, -10, -10, -10, -20,
+                -10, 0, 0, 0, 0, 0, 0, -10,
+                -10, 0, 5, 10, 10, 5, 0, -10,
+                -10, 5, 5, 10, 10, 5, 5, -10,
+                -10, 0, 10, 10, 10, 10, 0, -10,
+                -10, 10, 10, 10, 10, 10, 10, -10,
+                -10, 5, 0, 0, 0, 0, 5, -10,
+                -20, -10, -10, -10, -10, -10, -10, -20
+            ],
+            r: [
+                0, 0, 5, 10, 10, 5, 0, 0,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                5, 10, 10, 10, 10, 10, 10, 5,
+                0, 0, 0, 0, 0, 0, 0, 0
+            ],
+            q: [
+                -20, -10, -10, -5, -5, -10, -10, -20,
+                -10, 0, 0, 0, 0, 0, 0, -10,
+                -10, 0, 5, 5, 5, 5, 0, -10,
+                -5, 0, 5, 5, 5, 5, 0, -5,
+                0, 0, 5, 5, 5, 5, 0, -5,
+                -10, 5, 5, 5, 5, 5, 0, -10,
+                -10, 0, 5, 0, 0, 0, 0, -10,
+                -20, -10, -10, -5, -5, -10, -10, -20
+            ],
+            k: [
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -20, -30, -30, -40, -40, -30, -30, -20,
+                -10, -20, -20, -20, -20, -20, -20, -10,
+                20, 20, 0, 0, 0, 0, 20, 20,
+                20, 30, 10, 0, 0, 10, 30, 20
+            ]
+        });
+
+        const mirrorIndex64 = (idx) => {
+            const row = Math.floor(idx / 8);
+            const col = idx % 8;
+            return (7 - row) * 8 + col;
         };
 
         // Resize canvas
@@ -610,7 +735,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             menuBtn.style.display = 'none';
             pauseBtn.style.display = 'none';
             resetBtn.style.display = 'none';
-            difficultySelect.style.display = 'none';
+            difficultyUI.hide();
             gameTitle.textContent = '';
             scoreElement.textContent = '';
             scoreElement.style.display = 'none';
@@ -647,39 +772,39 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             switch(gameName) {
                 case 'spaceShooter':
                     gameTitle.textContent = 'Space Shooter';
-                    difficultySelect.style.display = 'none';
+                    difficultyUI.hide();
                     pauseBtn.style.display = 'inline-block';
                     gameManager.currentGame = new SpaceShooterGame();
                     break;
                 case 'runner':
                     gameTitle.textContent = 'Runner';
-                    difficultySelect.style.display = 'none';
+                    difficultyUI.hide();
                     pauseBtn.style.display = 'inline-block';
                     gameManager.currentGame = new RunnerGame();
                     break;
                 case 'breakout':
                     gameTitle.textContent = 'Breakout';
-                    difficultySelect.style.display = 'none';
+                    difficultyUI.hide();
                     pauseBtn.style.display = 'inline-block';
                     gameManager.currentGame = new BreakoutGame();
                     break;
                 case 'chess':
                     gameTitle.textContent = '♟ Chess';
                     scoreElement.textContent = 'Your Turn (White)';
-                    difficultySelect.style.display = 'inline-block';
+                    difficultyUI.showSetup();
                     pauseBtn.style.display = 'none'; // No pause for turn-based game
                     gameManager.currentGame = new ChessGame();
-                    gameManager.currentGame.setDifficulty(difficultySelect.value);
+                    applyChessDifficulty();
                     break;
                 case 'snake':
                     gameTitle.textContent = 'Snake';
-                    difficultySelect.style.display = 'none';
+                    difficultyUI.hide();
                     pauseBtn.style.display = 'inline-block';
                     gameManager.currentGame = new SnakeGame();
                     break;
                 case '2048':
                     gameTitle.textContent = '2048';
-                    difficultySelect.style.display = 'none';
+                    difficultyUI.hide();
                     pauseBtn.style.display = 'none'; // No pause for turn-based game
                     gameManager.currentGame = new Game2048();
                     break;
@@ -1315,9 +1440,12 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 this.lastMoveTimeMs = 0;
                 this.fadeAnimationId = null;
                 this.fadeDurationMs = 1200;
-                this.difficulty = 'easy';
+                this.difficulty = difficultySelect.value || 'easy';
                 this.aiAbortController = null;
-                this.maxEngineTimeMs = chessDifficultyConfig.easy.maxTimeMs;
+                const initialSettings = chessDifficultyConfig[this.difficulty] || chessDifficultyConfig.easy;
+                this.maxEngineTimeMs = initialSettings.maxTimeMs || chessDifficultyConfig.easy.maxTimeMs;
+                this.difficultyLocked = false;
+                this.matchStarted = false;
             }
 
             startFadeAnimation() {
@@ -1358,7 +1486,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 this.thinking = false;
                 if (shouldRestart && !this.isPlayerTurn && !this.gameOver) {
                     const label = this.getDifficultySettings().label || 'AI';
-                    scoreElement.textContent = `AI Thinking (${label})...`;
+                    scoreElement.textContent = 'AI Thinking (' + label + ')...';
                     setTimeout(() => this.makeAIMove(), 0);
                 }
             }
@@ -1373,6 +1501,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
             }
 
             init() {
+                this.prepareDifficultySelectionWindow();
                 // Make canvas bigger for chess
                 canvas.classList.add('chess-board');
                 resizeCanvas();
@@ -1399,6 +1528,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                         this.fadeAnimationId = null;
                     }
                     this.draw();
+                    scoreElement.textContent = 'Your Turn (White)';
                 }, 100);
                 
                 canvas.addEventListener('click', this.clickHandler = (e) => this.handleClick(e));
@@ -1410,6 +1540,8 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 canvas.removeEventListener('click', this.clickHandler);
                 canvas.removeEventListener('mousemove', this.mouseMoveHandler);
                 canvas.classList.remove('chess-board');
+                this.matchStarted = false;
+                this.difficultyLocked = false;
             }
 
             reset() {
@@ -1422,10 +1554,37 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 gameState.isGameOver = false;
                 pauseOverlay.classList.remove('show');
                 gameOverOverlay.classList.remove('show');
-                updateScore();
+                scoreElement.textContent = 'Your Turn (White)';
                 
                 // Reinitialize
                 this.init();
+            }
+
+            isDifficultySelectionLocked() {
+                return this.difficultyLocked;
+            }
+
+            setDifficulty(mode) {
+                const allowed = ['easy', 'medium', 'hard'];
+                const normalized = allowed.includes(mode) ? mode : 'easy';
+                this.difficulty = normalized;
+                if (difficultySelect.value !== normalized) {
+                    difficultySelect.value = normalized;
+                }
+            }
+
+            prepareDifficultySelectionWindow() {
+                this.matchStarted = false;
+                this.difficultyLocked = false;
+                this.setDifficulty(this.difficulty || difficultySelect.value || 'easy');
+                difficultyUI.showSetup();
+            }
+
+            lockDifficultySelectionForMatch() {
+                if (this.difficultyLocked) return;
+                this.difficultyLocked = true;
+                this.matchStarted = true;
+                difficultyUI.lock();
             }
 
             initBoard() {
@@ -1495,6 +1654,9 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 if (this.selectedSquare) {
                     const { row: fromRow, col: fromCol } = this.selectedSquare;
                     if (this.isValidMove(fromRow, fromCol, row, col)) {
+                        if (!this.matchStarted) {
+                            this.lockDifficultySelectionForMatch();
+                        }
                         this.makeMove(fromRow, fromCol, row, col);
                         this.selectedSquare = null;
                         this.legalMoves = [];
@@ -1687,33 +1849,75 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 return null;
             }
 
+            getDifficultyProfile(settingsOverride) {
+                const settings = settingsOverride || this.getDifficultySettings() || {};
+                const type = (settings.type || this.difficulty || 'easy').toLowerCase();
+
+                if (type === 'random') {
+                    return { strategy: 'random' };
+                }
+
+                if (type === 'heuristic') {
+                    return {
+                        strategy: 'heuristic',
+                        preferAggressive: !!settings.preferAggressive
+                    };
+                }
+
+                const profile = {
+                    strategy: 'search',
+                    depth: Number.isFinite(settings.depth) ? settings.depth : (this.difficulty === 'hard' ? 5 : 3),
+                    timeLimitMs: settings.maxTimeMs ?? settings.timeLimitMs ?? this.maxEngineTimeMs,
+                    mixRandomness: typeof settings.mixRandomness === 'number'
+                        ? settings.mixRandomness
+                        : (this.difficulty === 'medium' ? 0.2 : 0),
+                    allowHeuristicFallback: settings.allowHeuristicFallback !== undefined
+                        ? settings.allowHeuristicFallback
+                        : true,
+                    preferAggressive: settings.preferAggressive !== undefined
+                        ? settings.preferAggressive
+                        : (this.difficulty === 'hard')
+                };
+
+                return profile;
+            }
+
             async makeAIMove() {
                 if (this.gameOver || this.isPlayerTurn) return;
                 const abortSignal = this.createAbortSignal();
                 const settings = this.getDifficultySettings();
-                const label = settings.label || 'AI';
+                const label = (settings && settings.label) || 'AI';
+                const profile = this.getDifficultyProfile(settings);
+
                 this.thinking = true;
-                scoreElement.textContent = `AI Thinking (${label})...`;
+                scoreElement.textContent = 'AI Thinking (' + label + ')...';
                 this.draw();
 
                 try {
-                    if (settings.type === 'random') {
+                    if (profile.strategy === 'random') {
                         this.makeRandomMove();
-                    } else if (settings.type === 'heuristic') {
-                        const move = this.chooseHeuristicMove();
+                    } else if (profile.strategy === 'heuristic') {
+                        const move = this.chooseHeuristicMove({ preferAggressive: profile.preferAggressive });
                         if (move) {
                             this.executeAIMove(move);
                         } else {
                             this.makeRandomMove();
                         }
                     } else {
-                        let move = await this.getEngineMove(settings, abortSignal);
+                        let move = null;
+                        if (profile.mixRandomness && Math.random() < profile.mixRandomness) {
+                            move = this.chooseHeuristicMove({ preferAggressive: profile.preferAggressive });
+                        }
+                        if (!move) {
+                            move = await this.getEngineMove(profile, abortSignal);
+                        }
                         if (abortSignal.aborted || this.gameOver) {
                             return;
                         }
-                        if (!move && Math.random() < 0.2) {
-                            move = this.chooseHeuristicMove();
+                        if (!move && profile.allowHeuristicFallback) {
+                            move = this.chooseHeuristicMove({ preferAggressive: profile.preferAggressive });
                         }
+
                         if (move) {
                             const executed = this.executeAIMove(move);
                             if (!executed) {
@@ -1742,15 +1946,14 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 }
             }
 
-            async getEngineMove(settings, abortSignal) {
+            async getEngineMove(searchOptions = {}, abortSignal) {
                 if (window.Chess) {
                     try {
                         const fen = this.boardToFEN();
                         const moveUci = this.getBestMoveWithChessJs(
                             fen,
-                            settings.depth || 3,
-                            abortSignal,
-                            settings.maxTimeMs || this.maxEngineTimeMs
+                            searchOptions,
+                            abortSignal
                         );
                         if (abortSignal?.aborted) {
                             return null;
@@ -1774,42 +1977,121 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 return this.makeRandomMove(false);
             }
 
-            getBestMoveWithChessJs(fen, depth, abortSignal, timeBudgetMs) {
+            getBestMoveWithChessJs(fen, options = {}, abortSignal) {
                 if (!window.Chess) return null;
                 const ChessEngine = window.Chess;
+                const {
+                    depth = 3,
+                    timeLimitMs = 1000,
+                    preferAggressive = false
+                } = options;
+
                 const game = new ChessEngine(fen);
-                const getNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-                const startTime = getNow();
-                const shouldAbort = () => {
-                    if (abortSignal && abortSignal.aborted) return true;
-                    if (typeof timeBudgetMs === 'number' && timeBudgetMs >= 0) {
-                        if (getNow() - startTime > timeBudgetMs) return true;
+                const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                const searchStart = now();
+                const limit = Math.max(200, timeLimitMs || 1000);
+                const hasTimeLeft = () => {
+                    if (abortSignal?.aborted) return false;
+                    return (now() - searchStart) < limit;
+                };
+                let timedOut = false;
+
+                const getPassedPawnBonus = (boardState, row, col, color) => {
+                    let blocked = false;
+                    if (color === 'b') {
+                        for (let r = row + 1; r < 8 && !blocked; r++) {
+                            for (let c = Math.max(0, col - 1); c <= Math.min(7, col + 1); c++) {
+                                const sq = boardState[r][c];
+                                if (sq && sq.type === 'p' && sq.color === 'w') {
+                                    blocked = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (blocked) return 0;
+                        return row * 6;
+                    } else {
+                        for (let r = row - 1; r >= 0 && !blocked; r--) {
+                            for (let c = Math.max(0, col - 1); c <= Math.min(7, col + 1); c++) {
+                                const sq = boardState[r][c];
+                                if (sq && sq.type === 'p' && sq.color === 'b') {
+                                    blocked = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (blocked) return 0;
+                        return (7 - row) * 6;
                     }
-                    return false;
                 };
 
                 const evaluateGame = (g) => {
+                    if (g.isCheckmate()) {
+                        return g.turn() === 'b' ? -999999 : 999999;
+                    }
+                    if (g.isDraw() || g.isStalemate() || g.isInsufficientMaterial()) {
+                        return 0;
+                    }
+
                     const board = g.board();
                     let score = 0;
                     for (let r = 0; r < 8; r++) {
                         for (let c = 0; c < 8; c++) {
                             const sq = board[r][c];
                             if (!sq) continue;
-                            const val = chessPieceValues[sq.type] || 0;
-                            score += sq.color === 'b' ? val : -val;
+                            const idx = r * 8 + c;
+                            const positionalTable = CHESS_PST[sq.type];
+                            const positional = positionalTable
+                                ? positionalTable[sq.color === 'w' ? mirrorIndex64(idx) : idx]
+                                : 0;
+                            let total = (CHESS_PIECE_VALUES[sq.type] || 0) + positional;
+                            if (sq.type === 'p') {
+                                total += getPassedPawnBonus(board, r, c, sq.color);
+                            }
+                            if (preferAggressive && sq.color === 'b' && (sq.type === 'q' || sq.type === 'r')) {
+                                total += 5;
+                            }
+                            score += sq.color === 'b' ? total : -total;
                         }
                     }
                     return score;
                 };
 
+                const scoreMoveForOrdering = (move) => {
+                    let score = 0;
+                    if (move.captured) {
+                        score += (CHESS_PIECE_VALUES[move.captured] || 0) * 10;
+                        score -= (CHESS_PIECE_VALUES[move.piece] || 0);
+                    }
+                    if (move.promotion) {
+                        score += (CHESS_PIECE_VALUES[move.promotion] || 0) + 30;
+                    }
+                    const file = move.to.charCodeAt(0) - 97;
+                    const rank = parseInt(move.to[1], 10) - 1;
+                    const centrality = 4 - (Math.abs(3.5 - file) + Math.abs(3.5 - rank));
+                    score += centrality * (preferAggressive ? 3 : 1);
+                    if (move.flags && move.flags.includes('c')) {
+                        score += 4;
+                    }
+                    if (move.flags && move.flags.includes('k')) {
+                        score += 2;
+                    }
+                    return score;
+                };
+
+                const orderMoves = (moves) => {
+                    return moves.sort((a, b) => scoreMoveForOrdering(b) - scoreMoveForOrdering(a));
+                };
+
                 const minimax = (g, d, alpha, beta, isMax) => {
-                    if (shouldAbort()) {
-                        throw new Error('aborted');
+                    if (!hasTimeLeft()) {
+                        timedOut = true;
+                        return evaluateGame(g);
                     }
                     if (d === 0 || g.isGameOver()) {
                         return evaluateGame(g);
                     }
-                    const moves = g.moves({ verbose: true });
+                    const moves = orderMoves(g.moves({ verbose: true }));
                     if (isMax) {
                         let maxEval = -Infinity;
                         for (const m of moves) {
@@ -1818,7 +2100,7 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                             g.undo();
                             if (evalv > maxEval) maxEval = evalv;
                             if (evalv > alpha) alpha = evalv;
-                            if (beta <= alpha) break;
+                            if (beta <= alpha || !hasTimeLeft()) break;
                         }
                         return maxEval;
                     } else {
@@ -1829,51 +2111,36 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                             g.undo();
                             if (evalv < minEval) minEval = evalv;
                             if (evalv < beta) beta = evalv;
-                            if (beta <= alpha) break;
+                            if (beta <= alpha || !hasTimeLeft()) break;
                         }
                         return minEval;
                     }
                 };
 
-                const searchDepth = (targetDepth) => {
-                    const moves = game.moves({ verbose: true });
-                    if (!moves.length) return null;
-                    let best = null;
-                    let bestScore = -Infinity;
-                    for (const m of moves) {
-                        if (shouldAbort()) {
-                            throw new Error('aborted');
-                        }
-                        game.move(m);
-                        const score = minimax(game, targetDepth - 1, -Infinity, Infinity, false);
-                        game.undo();
-                        if (score > bestScore) {
-                            bestScore = score;
-                            best = m;
-                        }
-                    }
-                    return best ? (best.from + best.to + (best.promotion || '')) : null;
-                };
+                const rootMoves = orderMoves(game.moves({ verbose: true }));
+                if (!rootMoves.length) return null;
+                let best = null;
+                let bestScore = -Infinity;
 
-                let bestMove = null;
-                const maxDepth = Math.max(1, depth || 1);
-                for (let currentDepth = 1; currentDepth <= maxDepth; currentDepth++) {
-                    try {
-                        const candidate = searchDepth(currentDepth);
-                        if (candidate) {
-                            bestMove = candidate;
-                        }
-                        if (shouldAbort()) {
-                            break;
-                        }
-                    } catch (error) {
-                        if (error.message === 'aborted') {
-                            break;
-                        }
-                        throw error;
+                for (const m of rootMoves) {
+                    if (!hasTimeLeft() && best) break;
+                    game.move(m);
+                    const score = minimax(game, Math.max(0, (depth || 1) - 1), -Infinity, Infinity, false);
+                    game.undo();
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = m;
+                    }
+                    if (timedOut && best) {
+                        break;
                     }
                 }
-                return bestMove;
+
+                if (!best && rootMoves.length) {
+                    best = rootMoves[0];
+                }
+
+                return best ? (best.from + best.to + (best.promotion || '')) : null;
             }
 
             boardToFEN() {
@@ -1992,35 +2259,56 @@ function getGameHTML({ chessJsSrc, cspSource, nonce }) {
                 return move;
             }
 
-            chooseHeuristicMove() {
-                const moves = this.getAllAIMoves();
-                if (!moves.length) return null;
-                const whiteKing = this.findKing('K');
-                const scoredMoves = moves.map((move) => {
-                    const piece = this.board[move.fromRow][move.fromCol];
-                    const moverValue = chessPieceValues[piece.toLowerCase()] || 0;
-                    const captureValue = move.capture ? (chessPieceValues[move.capture.toLowerCase()] || 0) : 0;
-                    let score = captureValue * 10;
-                    score += moverValue * 0.1;
-                    if (chessCenterSquares.has(`${move.toRow}${move.toCol}`)) {
-                        score += 40;
+            chooseHeuristicMove(options = {}) {
+                const { preferAggressive = false } = options;
+                const captures = [];
+                const others = [];
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = this.board[r][c];
+                        if (piece && piece === piece.toLowerCase()) {
+                            for (let tr = 0; tr < 8; tr++) {
+                                for (let tc = 0; tc < 8; tc++) {
+                                    if (this.isValidAIMove(r, c, tr, tc)) {
+                                        const targetPiece = this.board[tr][tc];
+                                        const isCapture = !!(targetPiece && targetPiece === targetPiece.toUpperCase());
+                                        const move = { fromRow: r, fromCol: c, toRow: tr, toCol: tc };
+                                        if (preferAggressive) {
+                                            const captureValue = isCapture ? this.getPieceValueFromSymbol(targetPiece) : 0;
+                                            const advancement = piece === 'p' ? (tr - r) : 0;
+                                            move.priority = captureValue * 2 + this.getCentralityScore(tr, tc) + advancement;
+                                        }
+                                        (isCapture ? captures : others).push(move);
+                                    }
+                                }
+                            }
+                        }
                     }
-                    if (piece === 'p') {
-                        score += (7 - move.toRow) * 2;
+                }
+                if (captures.length) {
+                    if (preferAggressive) {
+                        captures.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+                        return captures[0];
                     }
-                    if (whiteKing) {
-                        const dist = Math.hypot(whiteKing.row - move.toRow, whiteKing.col - move.toCol);
-                        score += Math.max(0, 25 - dist * 5);
+                    return captures[Math.floor(Math.random() * captures.length)];
+                }
+                if (others.length) {
+                    if (preferAggressive) {
+                        others.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+                        return others[0];
                     }
-                    if (!move.capture) {
-                        score += 5;
-                    }
-                    return { move, score };
-                });
-                scoredMoves.sort((a, b) => b.score - a.score);
-                const bestScore = scoredMoves[0].score;
-                const topMoves = scoredMoves.filter(entry => entry.score >= bestScore - 15);
-                return topMoves[Math.floor(Math.random() * topMoves.length)].move;
+                    return others[Math.floor(Math.random() * others.length)];
+                }
+                return null;
+            }
+
+            getPieceValueFromSymbol(symbol) {
+                if (!symbol) return 0;
+                return CHESS_PIECE_VALUES[symbol.toLowerCase()] || 0;
+            }
+
+            getCentralityScore(row, col) {
+                return 4 - (Math.abs(3.5 - col) + Math.abs(3.5 - row));
             }
 
             isValidAIMove(fromRow, fromCol, toRow, toCol) {
